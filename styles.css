@@ -1,6 +1,6 @@
 
 body {
-    font-family: Poppins, sans-serif;
+    font-family: lato, sans-serif;
     line-height: 1.6;
     margin: 0;
     padding: 0;
@@ -15,8 +15,8 @@ h1, h2 {
 h1 {
     margin-bottom: 0.5em;
     font-size: 40px;
-    font-weight: black;
-    text-align: centre;
+    font-weight: 800;
+    text-align: center;
     
 }
 
