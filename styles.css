@@ -9,7 +9,7 @@ body {
 }
 
 .header-container {
-    padding: 40px; 
+    padding: 500px; 
     margin: auto; 
     color: #32a88d;
     background-colour: #46ebc4;
@@ -20,10 +20,11 @@ h1, h2 {
 }
 
 .mega-title {
-    margin-bottom: 0.5em;
-    font-size: 40px;
+    margin-bottom: 0.3em;
+    font-size: 80px;
     font-weight: 800;
     text-align: center;
+    color: #32a88d;
     
 }
 
