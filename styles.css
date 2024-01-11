@@ -12,12 +12,16 @@ h1, h2 {
     color: #333;
 }
 
-mega-title {
+.mega-title {
     margin-bottom: 0.5em;
     font-size: 40px;
     font-weight: 800;
     text-align: center;
     
+}
+
+h1 {
+    margin-top: 16px;
 }
 
 h2 {
