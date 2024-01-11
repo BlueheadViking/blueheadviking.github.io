@@ -10,9 +10,11 @@ body {
 
 .header-container {
     padding: 350px; 
-    margin: auto; 
+    margin-left: 16px; 
+    margin-right: 16px; 
     color: #32a88d;
     background-color: #46ebc4;
+    text-align: center;
 }
 
 h1, h2 {
