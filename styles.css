@@ -53,6 +53,7 @@ body{
 .categories ul{
     font-weight: 600;
     list-style: none;
+    line-height: 100px;
 }
 
 .container{
