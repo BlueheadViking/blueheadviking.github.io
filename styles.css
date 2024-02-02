@@ -57,5 +57,6 @@ body{
 
 .container{
     width: 99%;
-    margin: auto;    
+    margin: auto; 
+    padding-top: 50px;   
 }
