@@ -27,17 +27,17 @@ body{
     text-transform: capitalize;
 }
 
-.box-2 h1{
-    letter-spacing: 2px;
-    text-transform: capitalize;
-}
-
 .box-2{
     padding: 16px;
     color: gray;
     border: 16px burlywood solid;
     border-radius: 16px;
     margin-bottom: 64px;
+}
+
+.box-2 h1{
+    letter-spacing: 2px;
+    text-transform: capitalize;
 }
 
 .categories{
@@ -53,11 +53,21 @@ body{
 .categories ul{
     font-weight: 600;
     list-style: none;
-    line-height: 100px;
+    line-height:normal;
+    display: flex;
+    justify-content: center;
+    
+}
+
+.categories ul li{
+    padding: 16px;
+    text-transform: uppercase;
+    font-weight: bold;
 }
 
 .container{
-    width: 95%;
     margin: auto; 
-    padding-top: 50px;   
+    padding-top: 50px;
+    max-width: 680px;
+    min-width: 95%;
 }
