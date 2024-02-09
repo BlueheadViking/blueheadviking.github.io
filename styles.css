@@ -1,7 +1,7 @@
 
 a{
     text-decoration: none;
-    color: mediumseagreen;
+    color: rgb(65, 184, 116);
 }
 
 body{
@@ -10,7 +10,7 @@ body{
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     font-size: 16px;
     font-weight: normal;
-    line-height: 1.6em;
+    line-height: 16px;
 }
 
 .box-1{
@@ -50,17 +50,22 @@ body{
     text-align: center;
 }
 
+.categories h2{
+    font-weight: 600;
+}
+
 .categories ul{
     font-weight: 600;
     list-style: none;
     line-height:normal;
     display: flex;
     justify-content: center;
+    padding: 0px;
     
 }
 
 .categories ul li{
-    padding: 16px;
+    margin: 16px;
     text-transform: uppercase;
     font-weight: bold;
 }
@@ -70,4 +75,45 @@ body{
     padding-top: 50px;
     max-width: 680px;
     min-width: 95%;
+}
+
+#navbar{
+    color: rgb(18, 189, 60);
+}
+
+#navbar ul{
+    text-transform: uppercase;
+    list-style: none;
+    display: flex;
+    justify-content: center;
+    margin: 16px;
+    padding-left: 0px;
+    text-si;
+}
+
+#title ul li{
+    padding-left: 16px;
+    padding-right: 16px;
+    font-weight: bold;
+    min-width: 100px;
+    text-align: center;
+}
+
+#big-title{
+    font-size: 40px;
+    text-align: center;
+    text-transform: uppercase;
+    line-height: normal;
+}
+
+
+#title{
+    background-color: bisque;
+    color: gray;
+    border: 16px coral solid;
+    border-radius: 16px;
+    padding: 16px;
+    margin-bottom: 64px;
+    min-width: 100px;
+    text-align: center;
 }
