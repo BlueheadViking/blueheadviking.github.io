@@ -4,12 +4,81 @@
   <meta charset="utf-8" />
   <title>Photo Map</title>
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+  
   <!-- Mapbox GL JS CSS -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
-  <!-- External CSS -->
-  <link href="styles.css" rel="stylesheet" />
+  
+  <!-- Google Fonts: Material Symbols -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght@400" rel="stylesheet">
+  
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Map container */
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
+
+    /* Basic marker style */
+    .marker {
+      background-color: #3FB1CE;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    /* Crosshair using Material Symbols Rounded */
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: 'Material Symbols Rounded';
+      font-size: 40px; /* Adjust size as needed */
+      color: #5f6368; /* Color for the crosshair */
+      pointer-events: none; /* Allows interactions to pass through */
+      z-index: 1000; /* Ensure it's on top of other elements */
+    }
+
+    /* Modal styling */
+    #modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.8);
+    }
+
+    .modal-content {
+      margin: auto;
+      display: block;
+      max-width: 90%;
+      max-height: 90%;
+    }
+
+    .close {
+      position: absolute;
+      top: 10px;
+      right: 25px;
+      color: white;
+      font-size: 30px;
+      cursor: pointer;
+    }
+  </style>
+
   <!-- Mapbox GL JS -->
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  
   <!-- Papa Parse for CSV parsing -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 </head>
@@ -27,9 +96,194 @@
   </div>
 
   <!-- Crosshair in the center of the screen -->
-  <div class="crosshair"></div> <!-- Or use .crosshair-simple for a simple CSS crosshair -->
+  <div class="crosshair">add</div>
 
-  <!-- External JavaScript -->
-  <script src="script.js"></script>
+  <!-- Inline JavaScript -->
+  <script>
+    // Insert your Mapbox access token
+    mapboxgl.accessToken = 'pk.eyJ1IjoiZ3JpZmZpbmhhZGxhbmQiLCJhIjoiY20wMWcybG01MHJrMDJxb3EwbXkzOTk1NSJ9.ITxANpBn3lkoGjNKMcKMoQ';
+
+    // Initialize the map with your custom details
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/griffinhadland/clv0coy2u007l01q15qo4926v',
+      center: [170.499, -45.877], // Initial map center [lng, lat]
+      zoom: 12 // Initial zoom level
+    });
+
+    // URL of your published Google Sheet CSV
+    const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Fe-pYxXgok8xlvp4t10khMGF2j8vRrKf8Rt4q2KpN-7a-XSuvUPM0uPhs2w8gsrpBEkaPW2b7c2t/pub?output=csv';
+
+    // Fetch and parse the CSV data
+    Papa.parse(googleSheetURL, {
+      download: true,
+      header: true,
+      complete: function(results) {
+        const photoData = results.data;
+        const geoJsonData = convertToGeoJSON(photoData);
+        addClusteredMarkers(geoJsonData); // Function to add clustered markers
+        adjustMapToMarkers(geoJsonData); // Fit map to photo markers
+      },
+      error: function(err) {
+        console.error('Error fetching or parsing data:', err);
+      }
+    });
+
+    // Function to convert CSV data to GeoJSON format
+    function convertToGeoJSON(photoData) {
+      const features = photoData.map(photo => {
+        const longitude = parseFloat(photo.longitude);
+        const latitude = parseFloat(photo.latitude);
+
+        if (isNaN(longitude) || isNaN(latitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+          console.warn(`Invalid coordinates for photo titled "${photo.title}"`);
+          return null;
+        }
+
+        return {
+          type: 'Feature',
+          geometry: {
+            type: 'Point',
+            coordinates: [longitude, latitude]
+          },
+          properties: {
+            title: photo.title,
+            story: photo.story,
+            imagePreview: photo.imagePreview,
+            imageFull: photo.imageFull
+          }
+        };
+      });
+
+      return {
+        type: 'FeatureCollection',
+        features: features.filter(feature => feature !== null)
+      };
+    }
+
+    // Function to add clustered markers to the map
+    function addClusteredMarkers(geoJsonData) {
+      // Add a new source from the GeoJSON data and enable clustering
+      map.addSource('photos', {
+        type: 'geojson',
+        data: geoJsonData,
+        cluster: true,
+        clusterMaxZoom: 14, // Max zoom level for clustering
+        clusterRadius: 50    // Radius of each cluster when clustering points (in pixels)
+      });
+
+      // Add a layer for the clusters
+      map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'photos',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'step',
+            ['get', 'point_count'],
+            '#51bbd6',
+            100,
+            '#f28cb1',
+            750,
+            '#f1f075'
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            15,
+            100,
+            20,
+            750,
+            25
+          ]
+        }
+      });
+
+      // Add a layer for the cluster count
+      map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: 'photos',
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+          'text-size': 12
+        }
+      });
+
+      // Add a layer for unclustered points
+      map.addLayer({
+        id: 'unclustered-point',
+        type: 'circle',
+        source: 'photos',
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': '#11b4da',
+          'circle-radius': 8,
+          'circle-stroke-width': 1,
+          'circle-stroke-color': '#fff'
+        }
+      });
+
+      // Zoom in on cluster click
+      map.on('click', 'clusters', function (e) {
+        const features = map.queryRenderedFeatures(e.point, {
+          layers: ['clusters']
+        });
+        const clusterId = features[0].properties.cluster_id;
+        map.getSource('photos').getClusterExpansionZoom(clusterId, function (err, zoom) {
+          if (err) return;
+
+          map.easeTo({
+            center: features[0].geometry.coordinates,
+            zoom: zoom
+          });
+        });
+      });
+
+      // When a point is clicked, display information
+      map.on('click', 'unclustered-point', function (e) {
+        const coordinates = e.features[0].geometry.coordinates.slice();
+        const { title, story, imagePreview, imageFull } = e.features[0].properties;
+
+        // Ensure the popup appears over the correct point
+        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+        }
+
+        // Open modal with full image
+        document.getElementById("modal").style.display = "block";
+        document.getElementById("modal-image").src = imageFull; // Show full image in modal
+
+        // Popup for title and preview
+        new mapboxgl.Popup()
+          .setLngLat(coordinates)
+          .setHTML(`<h3>${title}</h3><img src="${imagePreview}" alt="${title}" style="width: 100%;"><p>${story}</p>`)
+          .addTo(map);
+      });
+
+      // Change the cursor to a pointer when hovering over a cluster
+      map.on('mouseenter', 'clusters', function () {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      map.on('mouseleave', 'clusters', function () {
+        map.getCanvas().style.cursor = '';
+      });
+    }
+
+    // Adjust map to fit all photo markers
+    function adjustMapToMarkers(geoJsonData) {
+      const coordinates = geoJsonData.features.map(feature => feature.geometry.coordinates);
+      const bounds = coordinates.reduce((bounds, coord) => bounds.extend(coord), new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
+      map.fitBounds(bounds, { padding: 50 });
+    }
+
+    // Close the modal when clicking the close button
+    document.getElementById("close-modal").onclick = function() {
+      document.getElementById("modal").style.display = "none";
+    };
+  </script>
 </body>
 </html>
