@@ -11,6 +11,9 @@
   <!-- Google Fonts: Material Symbols -->
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght@400" rel="stylesheet">
   
+  <!-- Include Turf.js -->
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+
   <style>
     body {
       margin: 0;
@@ -46,34 +49,6 @@
       pointer-events: none; /* Allows interactions to pass through */
       z-index: 1000; /* Ensure it's on top of other elements */
     }
-
-    /* Modal styling */
-    #modal {
-      display: none;
-      position: fixed;
-      z-index: 1000;
-      left: 0;
-      top: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0,0,0,0.8);
-    }
-
-    .modal-content {
-      margin: auto;
-      display: block;
-      max-width: 90%;
-      max-height: 90%;
-    }
-
-    .close {
-      position: absolute;
-      top: 10px;
-      right: 25px;
-      color: white;
-      font-size: 30px;
-      cursor: pointer;
-    }
   </style>
 
   <!-- Mapbox GL JS -->
@@ -86,15 +61,6 @@
   <!-- Map Container -->
   <div id="map"></div>
   
-  <!-- Story Panel -->
-  <div id="story-panel">Click on a marker to see the story.</div>
-
-  <!-- Modal Structure -->
-  <div id="modal" class="modal">
-    <span class="close" id="close-modal">&times;</span>
-    <img class="modal-content" id="modal-image">
-  </div>
-
   <!-- Crosshair in the center of the screen -->
   <div class="crosshair">add</div>
 
@@ -114,15 +80,18 @@
     // URL of your published Google Sheet CSV
     const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Fe-pYxXgok8xlvp4t10khMGF2j8vRrKf8Rt4q2KpN-7a-XSuvUPM0uPhs2w8gsrpBEkaPW2b7c2t/pub?output=csv';
 
+    let geoJsonData;
+
     // Fetch and parse the CSV data
     Papa.parse(googleSheetURL, {
       download: true,
       header: true,
       complete: function(results) {
         const photoData = results.data;
-        const geoJsonData = convertToGeoJSON(photoData);
+        geoJsonData = convertToGeoJSON(photoData);
         addClusteredMarkers(geoJsonData); // Function to add clustered markers
         adjustMapToMarkers(geoJsonData); // Fit map to photo markers
+        updateLineToClosestMarker(); // Initially draw the line
       },
       error: function(err) {
         console.error('Error fetching or parsing data:', err);
@@ -163,6 +132,11 @@
 
     // Function to add clustered markers to the map
     function addClusteredMarkers(geoJsonData) {
+      if (!geoJsonData || !geoJsonData.features.length) {
+        console.error('No markers to display.');
+        return;
+      }
+
       // Add a new source from the GeoJSON data and enable clustering
       map.addSource('photos', {
         type: 'geojson',
@@ -227,50 +201,78 @@
         }
       });
 
-      // Zoom in on cluster click
-      map.on('click', 'clusters', function (e) {
-        const features = map.queryRenderedFeatures(e.point, {
-          layers: ['clusters']
+      // Add an empty source for the line between the crosshair and the closest marker
+      if (!map.getSource('crosshair-line')) {
+        map.addSource('crosshair-line', {
+          type: 'geojson',
+          data: {
+            type: 'FeatureCollection',
+            features: []
+          }
         });
-        const clusterId = features[0].properties.cluster_id;
-        map.getSource('photos').getClusterExpansionZoom(clusterId, function (err, zoom) {
-          if (err) return;
 
-          map.easeTo({
-            center: features[0].geometry.coordinates,
-            zoom: zoom
-          });
+        // Add a layer for the line
+        map.addLayer({
+          id: 'crosshair-line-layer',
+          type: 'line',
+          source: 'crosshair-line',
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#ff0000', // Red line
+            'line-width': 3 // Set the line width to make it more visible
+          }
         });
-      });
+      }
 
-      // When a point is clicked, display information
-      map.on('click', 'unclustered-point', function (e) {
-        const coordinates = e.features[0].geometry.coordinates.slice();
-        const { title, story, imagePreview, imageFull } = e.features[0].properties;
+      // Update the line as the map moves
+      map.on('move', updateLineToClosestMarker);
+    }
 
-        // Ensure the popup appears over the correct point
-        while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
-          coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+    // Function to find the closest marker to the crosshair (map center) using Turf.js
+    function findClosestMarker(mapCenterLngLat, features) {
+      let minDistance = Infinity;
+      let closestMarker = null;
+
+      features.forEach(feature => {
+        const markerLngLat = feature.geometry.coordinates;
+        const from = turf.point([mapCenterLngLat.lng, mapCenterLngLat.lat]);
+        const to = turf.point(markerLngLat);
+        const distance = turf.distance(from, to); // Calculate distance using Turf.js
+        
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestMarker = feature;
         }
-
-        // Open modal with full image
-        document.getElementById("modal").style.display = "block";
-        document.getElementById("modal-image").src = imageFull; // Show full image in modal
-
-        // Popup for title and preview
-        new mapboxgl.Popup()
-          .setLngLat(coordinates)
-          .setHTML(`<h3>${title}</h3><img src="${imagePreview}" alt="${title}" style="width: 100%;"><p>${story}</p>`)
-          .addTo(map);
       });
 
-      // Change the cursor to a pointer when hovering over a cluster
-      map.on('mouseenter', 'clusters', function () {
-        map.getCanvas().style.cursor = 'pointer';
-      });
-      map.on('mouseleave', 'clusters', function () {
-        map.getCanvas().style.cursor = '';
-      });
+      return closestMarker;
+    }
+
+    // Function to update the line between the crosshair (center of the screen) and the closest marker
+    function updateLineToClosestMarker() {
+      const mapCenter = map.getCenter();
+      const closestMarker = findClosestMarker(mapCenter, geoJsonData.features);
+
+      if (closestMarker) {
+        const lineData = {
+          type: 'FeatureCollection',
+          features: [{
+            type: 'Feature',
+            geometry: {
+              type: 'LineString',
+              coordinates: [[mapCenter.lng, mapCenter.lat], closestMarker.geometry.coordinates]
+            }
+          }]
+        };
+
+        // Update the source with the new line
+        if (map.getSource('crosshair-line')) {
+          map.getSource('crosshair-line').setData(lineData);
+        }
+      }
     }
 
     // Adjust map to fit all photo markers
@@ -279,11 +281,6 @@
       const bounds = coordinates.reduce((bounds, coord) => bounds.extend(coord), new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
       map.fitBounds(bounds, { padding: 50 });
     }
-
-    // Close the modal when clicking the close button
-    document.getElementById("close-modal").onclick = function() {
-      document.getElementById("modal").style.display = "none";
-    };
   </script>
 </body>
 </html>
