@@ -106,7 +106,7 @@
 
   <!-- Dialog at the bottom of the screen -->
   <div id="photo-dialog" class="dialog">
-    <img id="dialog-image" src="" alt="Image Preview" onerror="this.style.backgroundColor='#ccc';">
+    <img id="dialog-image" src="" alt="Image Preview">
     <div class="dialog-info">
       <h4 id="dialog-title">Title</h4>
       <p id="dialog-date">Date</p>
@@ -123,6 +123,8 @@
       center: [170.499, -45.877], // Initial map center [lng, lat]
       zoom: 12 // Initial zoom level
     });
+
+    let currentImagePreview = ""; // Track the current image URL
 
     // URL of your published Google Sheet CSV
     const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Fe-pYxXgok8xlvp4t10khMGF2j8vRrKf8Rt4q2KpN-7a-XSuvUPM0uPhs2w8gsrpBEkaPW2b7c2t/pub?output=csv';
@@ -246,11 +248,12 @@
         document.getElementById('dialog-title').textContent = properties.title;
         document.getElementById('dialog-date').textContent = properties.date;
 
-        // If image preview exists, set it, otherwise use grey placeholder
-        if (properties.imagePreview) {
+        // Only update the image if the URL changes to prevent flickering
+        if (properties.imagePreview && properties.imagePreview !== currentImagePreview) {
           document.getElementById('dialog-image').src = properties.imagePreview;
-          document.getElementById('dialog-image').style.backgroundColor = "transparent"; // Remove grey background if image exists
-        } else {
+          document.getElementById('dialog-image').style.backgroundColor = "transparent";
+          currentImagePreview = properties.imagePreview; // Update current image
+        } else if (!properties.imagePreview) {
           document.getElementById('dialog-image').src = ""; // No image to load
           document.getElementById('dialog-image').style.backgroundColor = "#ccc"; // Grey placeholder
         }
