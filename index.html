@@ -15,10 +15,7 @@
   <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
 
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-    }
+    body { margin: 0; padding: 0; }
 
     /* Map container */
     #map {
@@ -28,26 +25,69 @@
       width: 100%;
     }
 
-    /* Basic marker style */
-    .marker {
-      background-color: #3FB1CE;
-      width: 30px;
-      height: 30px;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-
-    /* Crosshair using Material Symbols Rounded */
+    /* Crosshair in the center of the screen */
     .crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       font-family: 'Material Symbols Rounded';
-      font-size: 40px; /* Adjust size as needed */
-      color: #5f6368; /* Color for the crosshair */
-      pointer-events: none; /* Allows interactions to pass through */
-      z-index: 1000; /* Ensure it's on top of other elements */
+      font-size: 40px;
+      color: #5f6368;
+      pointer-events: none;
+      z-index: 1000;
+    }
+
+    /* Dialog box at the bottom */
+    .dialog {
+      position: fixed;
+      bottom: 1rem;
+      left: 1rem;
+      right: 1rem;
+      max-width: 500px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.2);
+      border-radius: 1rem;
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      transform: translateY(100%);
+      transition: transform 0.3s ease-in-out;
+      font-family: Arial, sans-serif;
+    }
+
+    /* Show the dialog */
+    .dialog.show {
+      transform: translateY(0);
+    }
+
+    /* Image in dialog with placeholder */
+    .dialog img {
+      width: 50px;
+      height: 50px;
+      margin-right: 10px;
+      object-fit: cover;
+      border-radius: 0.5rem;
+      background-color: #ccc; /* Grey placeholder */
+    }
+
+    /* Title and Date in dialog */
+    .dialog-info {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .dialog-info h4 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .dialog-info p {
+      margin: 2px 0;
+      font-size: 12px;
+      color: #555;
     }
   </style>
 
@@ -64,15 +104,22 @@
   <!-- Crosshair in the center of the screen -->
   <div class="crosshair">add</div>
 
-  <!-- Inline JavaScript -->
+  <!-- Dialog at the bottom of the screen -->
+  <div id="photo-dialog" class="dialog">
+    <img id="dialog-image" src="" alt="Image Preview" onerror="this.style.backgroundColor='#ccc';">
+    <div class="dialog-info">
+      <h4 id="dialog-title">Title</h4>
+      <p id="dialog-date">Date</p>
+    </div>
+  </div>
+
   <script>
     // Insert your Mapbox access token
-    mapboxgl.accessToken = 'pk.eyJ1IjoiZ3JpZmZpbmhhZGxhbmQiLCJhIjoiY20wMWcybG01MHJrMDJxb3EwbXkzOTk1NSJ9.ITxANpBn3lkoGjNKMcKMoQ';
+    mapboxgl.accessToken = 'pk.eyJ1IjoiYmx1ZWhlYWR2aWtpbmciLCJhIjoiY20xZGg5anN6MjlnZzJxb2lreWdhdm93aCJ9.bklgLcRNR49C5FK1V_nXpg';
 
-    // Initialize the map with your custom details
     const map = new mapboxgl.Map({
       container: 'map',
-      style: 'mapbox://styles/griffinhadland/clv0coy2u007l01q15qo4926v',
+      style: 'mapbox://styles/blueheadviking/cm1dhffpz043i01r76eex9w4m',
       center: [170.499, -45.877], // Initial map center [lng, lat]
       zoom: 12 // Initial zoom level
     });
@@ -82,109 +129,51 @@
 
     let geoJsonData;
 
-    // Fetch and parse the CSV data
+    // Parse CSV data and initialize map features
     Papa.parse(googleSheetURL, {
       download: true,
       header: true,
-      complete: function(results) {
-        const photoData = results.data;
-        geoJsonData = convertToGeoJSON(photoData);
-        addClusteredMarkers(geoJsonData); // Function to add clustered markers
-        adjustMapToMarkers(geoJsonData); // Fit map to photo markers
-        updateLineToClosestMarker(); // Initially draw the line
+      complete: results => {
+        geoJsonData = convertToGeoJSON(results.data);
+        setupMapFeatures(geoJsonData);
       },
-      error: function(err) {
-        console.error('Error fetching or parsing data:', err);
-      }
+      error: err => console.error('Error fetching or parsing data:', err)
     });
 
-    // Function to convert CSV data to GeoJSON format
+    // Convert CSV data to GeoJSON format
     function convertToGeoJSON(photoData) {
-      const features = photoData.map(photo => {
-        const longitude = parseFloat(photo.longitude);
-        const latitude = parseFloat(photo.latitude);
-
-        if (isNaN(longitude) || isNaN(latitude) || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-          console.warn(`Invalid coordinates for photo titled "${photo.title}"`);
-          return null;
-        }
-
-        return {
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: [longitude, latitude]
-          },
-          properties: {
-            title: photo.title,
-            story: photo.story,
-            imagePreview: photo.imagePreview,
-            imageFull: photo.imageFull
-          }
-        };
-      });
-
       return {
         type: 'FeatureCollection',
-        features: features.filter(feature => feature !== null)
+        features: photoData
+          .filter(photo => isValidCoordinates(photo.longitude, photo.latitude))
+          .map(photo => ({
+            type: 'Feature',
+            geometry: {
+              type: 'Point',
+              coordinates: [+photo.longitude, +photo.latitude]
+            },
+            properties: {
+              title: photo.title,
+              date: photo.date,
+              imagePreview: photo.imagePreview,
+              imageFull: photo.imageFull
+            }
+          }))
       };
     }
 
-    // Function to add clustered markers to the map
-    function addClusteredMarkers(geoJsonData) {
-      if (!geoJsonData || !geoJsonData.features.length) {
-        console.error('No markers to display.');
-        return;
-      }
+    // Check for valid coordinates
+    function isValidCoordinates(lng, lat) {
+      const longitude = parseFloat(lng), latitude = parseFloat(lat);
+      return !isNaN(longitude) && !isNaN(latitude) && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+    }
 
-      // Add a new source from the GeoJSON data and enable clustering
+    // Setup the map with markers and line
+    function setupMapFeatures(geoJsonData) {
+      // Add a source for non-clustered markers
       map.addSource('photos', {
         type: 'geojson',
-        data: geoJsonData,
-        cluster: true,
-        clusterMaxZoom: 14, // Max zoom level for clustering
-        clusterRadius: 50    // Radius of each cluster when clustering points (in pixels)
-      });
-
-      // Add a layer for the clusters
-      map.addLayer({
-        id: 'clusters',
-        type: 'circle',
-        source: 'photos',
-        filter: ['has', 'point_count'],
-        paint: {
-          'circle-color': [
-            'step',
-            ['get', 'point_count'],
-            '#51bbd6',
-            100,
-            '#f28cb1',
-            750,
-            '#f1f075'
-          ],
-          'circle-radius': [
-            'step',
-            ['get', 'point_count'],
-            15,
-            100,
-            20,
-            750,
-            25
-          ]
-        }
-      });
-
-      // Add a layer for the cluster count
-      map.addLayer({
-        id: 'cluster-count',
-        type: 'symbol',
-        source: 'photos',
-        filter: ['has', 'point_count'],
-        layout: {
-          'text-field': '{point_count_abbreviated}',
-          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-          'text-size': 12
-        }
+        data: geoJsonData
       });
 
       // Add a layer for unclustered points
@@ -192,7 +181,6 @@
         id: 'unclustered-point',
         type: 'circle',
         source: 'photos',
-        filter: ['!', ['has', 'point_count']],
         paint: {
           'circle-color': '#11b4da',
           'circle-radius': 8,
@@ -201,47 +189,30 @@
         }
       });
 
-      // Add an empty source for the line between the crosshair and the closest marker
-      if (!map.getSource('crosshair-line')) {
-        map.addSource('crosshair-line', {
-          type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: []
-          }
-        });
+      // Add a source for the line from the crosshair to the closest marker
+      map.addSource('crosshair-line', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
 
-        // Add a layer for the line
-        map.addLayer({
-          id: 'crosshair-line-layer',
-          type: 'line',
-          source: 'crosshair-line',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round'
-          },
-          paint: {
-            'line-color': '#ff0000', // Red line
-            'line-width': 3 // Set the line width to make it more visible
-          }
-        });
-      }
+      // Add a layer to display the line
+      map.addLayer({
+        id: 'crosshair-line-layer',
+        type: 'line',
+        source: 'crosshair-line',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': '#ff0000', 'line-width': 3 }
+      });
 
-      // Update the line as the map moves
-      map.on('move', updateLineToClosestMarker);
+      // Update line and dialog to closest marker whenever the map moves
+      map.on('move', updateUIToClosestMarker);
     }
 
-    // Function to find the closest marker to the crosshair (map center) using Turf.js
-    function findClosestMarker(mapCenterLngLat, features) {
-      let minDistance = Infinity;
-      let closestMarker = null;
+    // Find the closest marker to the crosshair (map center) using Turf.js
+    function findClosestMarker(mapCenter, features) {
+      const from = turf.point([mapCenter.lng, mapCenter.lat]);
+      let minDistance = Infinity, closestMarker = null;
 
       features.forEach(feature => {
-        const markerLngLat = feature.geometry.coordinates;
-        const from = turf.point([mapCenterLngLat.lng, mapCenterLngLat.lat]);
-        const to = turf.point(markerLngLat);
-        const distance = turf.distance(from, to); // Calculate distance using Turf.js
-        
+        const to = turf.point(feature.geometry.coordinates);
+        const distance = turf.distance(from, to);
         if (distance < minDistance) {
           minDistance = distance;
           closestMarker = feature;
@@ -251,12 +222,13 @@
       return closestMarker;
     }
 
-    // Function to update the line between the crosshair (center of the screen) and the closest marker
-    function updateLineToClosestMarker() {
+    // Update the line and dialog for the closest marker
+    function updateUIToClosestMarker() {
       const mapCenter = map.getCenter();
       const closestMarker = findClosestMarker(mapCenter, geoJsonData.features);
 
       if (closestMarker) {
+        // Update the line
         const lineData = {
           type: 'FeatureCollection',
           features: [{
@@ -267,19 +239,25 @@
             }
           }]
         };
+        map.getSource('crosshair-line').setData(lineData);
 
-        // Update the source with the new line
-        if (map.getSource('crosshair-line')) {
-          map.getSource('crosshair-line').setData(lineData);
+        // Update the dialog with the marker details
+        const properties = closestMarker.properties;
+        document.getElementById('dialog-title').textContent = properties.title;
+        document.getElementById('dialog-date').textContent = properties.date;
+
+        // If image preview exists, set it, otherwise use grey placeholder
+        if (properties.imagePreview) {
+          document.getElementById('dialog-image').src = properties.imagePreview;
+          document.getElementById('dialog-image').style.backgroundColor = "transparent"; // Remove grey background if image exists
+        } else {
+          document.getElementById('dialog-image').src = ""; // No image to load
+          document.getElementById('dialog-image').style.backgroundColor = "#ccc"; // Grey placeholder
         }
-      }
-    }
 
-    // Adjust map to fit all photo markers
-    function adjustMapToMarkers(geoJsonData) {
-      const coordinates = geoJsonData.features.map(feature => feature.geometry.coordinates);
-      const bounds = coordinates.reduce((bounds, coord) => bounds.extend(coord), new mapboxgl.LngLatBounds(coordinates[0], coordinates[0]));
-      map.fitBounds(bounds, { padding: 50 });
+        // Show the dialog
+        document.getElementById('photo-dialog').classList.add('show');
+      }
     }
   </script>
 </body>
