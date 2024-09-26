@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>GeoPic V2.9 - PWA</title>
+  <title>GeoPic V2.13</title>
 
   <!-- Mapbox GL JS CSS -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
@@ -113,15 +113,6 @@
     <span id="close-modal" class="close">&times;</span><img id="fullscreen-image" src="" alt="Full Image">
   </div>
 
-  <!-- Service Worker Registration -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('data:application/javascript;base64,Y29uc3QgQ0FDRV9OQU1FID0gImdlb3BpYy1jYWNoZS12MSI7CmNvbnN0IHVybHRvQ2FjaGUgPSBbCiAgICAiLyIsICIvZGVmYXVsdC5odG1sIiwKICAgICJzdHlsZXMuY3NzIiwKICAgICJzY3JpcHQuanMiCiAgIC8qIGFkZCBtb3JlIHVybHMgdG8gY2FjaGUgKi8KXTsKCnNlbGYuYWRkRXZlbnRMaXN0ZW5lcignc2VsZkZldGNoJywgc3luYyBldmVudCA9PiB7CiAgICBldmVudC5yZXNwb25kV2l0aChjYWNoZXMuZ2V0KGV2ZW50LnJlcXVlc3QpIHx8IGZldGNoKGV2ZW50LnJlcXVlc3QpKTsKfSk7CgppbnN0YWxsRXZlbnQuc2VsZiA9IGV2ZW50ID0+IHsKICAgIGV2ZW50LndhaXRVbnRpbChkYWNoZXMub3BlbihDQUNFLU5BTUUpLnRoZW4oY2FjaGUgPT4gY2FjaGUuYWRkQWxsKHVybHRvQ2FjaGUpKSk7Cn07Cg==')
-        .then(() => console.log('Service Worker Registered'))
-        .catch(err => console.log('Service Worker registration failed: ', err));
-    }
-  </script>
-
   <!-- Mapbox GL JS and Papa Parse for CSV Parsing -->
   <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
@@ -132,7 +123,10 @@
       container: 'map',
       style: 'mapbox://styles/blueheadviking/cm1j3cxlm008h01ra5mys2q4j',
       center: [170.499, -45.877],
-      zoom: 12
+      zoom: 12,
+      pitchWithRotate: false,  // Disable map rotation with pitch
+      dragRotate: false,       // Disable drag-to-rotate
+      maxPitch: 0              // Fix the map's pitch so it can't tilt
     });
 
     let currentImagePreview = "", currentImageFull = "", selectedMarker = null, closestMarker = null;
@@ -145,6 +139,7 @@
       complete: results => {
         geoJsonData = convertToGeoJSON(results.data);
         setupMapFeatures(geoJsonData);
+        updateUIToClosestMarker(); // Ensure the closest marker is selected on load
       },
       error: err => console.error('Error fetching or parsing data:', err)
     });
@@ -184,14 +179,14 @@
         return;
       }
 
-      // Add red line layer first so it is under markers
+      // Add yellow line layer first so it is under markers
       map.addSource('crosshair-line', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addLayer({
         id: 'crosshair-line-layer',
         type: 'line',
         source: 'crosshair-line',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#ff0000', 'line-width': 5 }
+        paint: { 'line-color': '#FFFF00', 'line-width': 5 } // Yellow line
       });
 
       // Add markers after the line layer
@@ -224,14 +219,24 @@
       updateDialog(title, imagePreview, imageFull);
     }
 
+    // Calculate max distance based on screen size and zoom level
+    function calculateMaxDistance(map) {
+      const zoomLevel = map.getZoom();
+      const viewportWidthInKm = (40075 / Math.pow(2, zoomLevel)) * (window.innerWidth / 256);
+      const maxDistance = viewportWidthInKm * 0.05; // Set to 5% of screen width in km
+      return maxDistance;
+    }
+
     function updateUIToClosestMarker() {
       if (!geoJsonData || !geoJsonData.features) {
         console.error("No valid geoJsonData to process.");
         return;
       }
 
+      const maxDistance = calculateMaxDistance(map); // Dynamic max distance based on zoom level
       const { closestMarker, closestMarkerDistance } = findClosestMarker(map.getCenter(), geoJsonData.features);
-      if (closestMarker && closestMarkerDistance < 5) {
+
+      if (closestMarker && closestMarkerDistance < maxDistance) {
         selectedMarker = closestMarker;
         map.getSource('crosshair-line').setData({
           type: 'FeatureCollection',
