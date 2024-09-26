@@ -1,44 +1,20 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>Photo Map</title>
-  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
-  
-  <!-- Mapbox GL JS CSS -->
-  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
-  
-  <!-- Google Fonts: Material Symbols -->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>GeoPic V2.6</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght@400" rel="stylesheet">
-  
-  <!-- Include Turf.js -->
   <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
-
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
   <style>
     body { margin: 0; padding: 0; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: 'Material Symbols Rounded'; font-size: 40px; color: #5f6368; pointer-events: none; z-index: 1000; }
 
-    /* Map container */
-    #map {
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      width: 100%;
-    }
-
-    /* Crosshair in the center of the screen */
-    .crosshair {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      font-family: 'Material Symbols Rounded';
-      font-size: 40px;
-      color: #5f6368;
-      pointer-events: none;
-      z-index: 1000;
-    }
-
-    /* Dialog box at the bottom */
+    /* Dialog Style */
     .dialog {
       position: fixed;
       bottom: 3rem;
@@ -46,50 +22,37 @@
       right: 1rem;
       max-width: 500px;
       margin: 0 auto;
-      background: rgba(255, 255, 255, 0.9);
-      box-shadow: 0px 3px 10px rgba(0, 0, 0, 0.2);
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
       border-radius: 1rem;
-      display: flex;
-      align-items: center;
-      padding: 10px;
       font-family: Arial, sans-serif;
-    }
-
-    /* Show the dialog */
-    .dialog.show {
-      transform: translateY(0);
-    }
-
-    /* Image in dialog with placeholder */
-    .dialog img {
-      width: 50px;
-      height: 50px;
-      margin-right: 10px;
-      object-fit: cover;
-      border-radius: 0.5rem;
-      background-color: #ccc; /* Grey placeholder */
-      cursor: pointer; /* Make the image clickable */
-    }
-
-    /* Title and Date in dialog */
-    .dialog-info {
       display: flex;
       flex-direction: column;
+      padding: 0;
+      cursor: pointer;
     }
 
-    .dialog-info h4 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: bold;
+    /* Image at the top */
+    .dialog img {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-top-left-radius: 1rem;
+      border-top-right-radius: 1rem;
+      background-color: #ccc; /* Grey placeholder */
     }
 
-    .dialog-info p {
-      margin: 2px 0;
+    /* Title at the bottom */
+    .dialog-title {
+      padding: 10px;
       font-size: 12px;
+      font-weight: bold;
+      text-transform: uppercase;
       color: #555;
+      border-bottom-left-radius: 1rem;
+      border-bottom-right-radius: 1rem;
     }
 
-    /* Fullscreen modal */
     .fullscreen-modal {
       display: none;
       position: fixed;
@@ -98,19 +61,17 @@
       width: 100%;
       height: 100%;
       background-color: rgba(0, 0, 0, 0.8);
-      z-index: 2000; /* On top of everything */
+      z-index: 2000;
       justify-content: center;
       align-items: center;
     }
 
-    /* Fullscreen image */
     .fullscreen-modal img {
-      width: 80%;  /* Image takes up 80% of the screen */
+      width: 80%;
       height: auto;
       border-radius: 1rem;
     }
 
-    /* Close button for fullscreen modal */
     .fullscreen-modal .close {
       position: absolute;
       top: 20px;
@@ -119,57 +80,28 @@
       font-size: 30px;
       cursor: pointer;
     }
-
   </style>
-
-  <!-- Mapbox GL JS -->
-  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
-  
-  <!-- Papa Parse for CSV parsing -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
 </head>
 <body>
-  <!-- Map Container -->
   <div id="map"></div>
-  
-  <!-- Crosshair in the center of the screen -->
   <div class="crosshair">add</div>
-
-  <!-- Dialog at the bottom of the screen -->
   <div id="photo-dialog" class="dialog">
     <img id="dialog-image" src="" alt="Image Preview">
-    <div class="dialog-info">
-      <h4 id="dialog-title">Title</h4>
-      <p id="dialog-date">Date</p>
-    </div>
+    <div id="dialog-title" class="dialog-title">Title</div>
   </div>
-
-  <!-- Fullscreen Image Modal -->
   <div id="fullscreen-modal" class="fullscreen-modal">
-    <span class="close" id="close-modal">&times;</span>
-    <img id="fullscreen-image" src="" alt="Full Image">
+    <span id="close-modal" class="close">&times;</span><img id="fullscreen-image" src="" alt="Full Image">
   </div>
 
   <script>
-    // Insert your Mapbox access token
     mapboxgl.accessToken = 'pk.eyJ1IjoiYmx1ZWhlYWR2aWtpbmciLCJhIjoiY20xZGg5anN6MjlnZzJxb2lreWdhdm93aCJ9.bklgLcRNR49C5FK1V_nXpg';
+    const map = new mapboxgl.Map({ container: 'map', style: 'mapbox://styles/blueheadviking/cm1dhffpz043i01r76eex9w4m', center: [170.499, -45.877], zoom: 12 });
 
-    const map = new mapboxgl.Map({
-      container: 'map',
-      style: 'mapbox://styles/blueheadviking/cm1dhffpz043i01r76eex9w4m',
-      center: [170.499, -45.877], // Initial map center [lng, lat]
-      zoom: 12 // Initial zoom level
-    });
+    let currentImagePreview = "", currentImageFull = "", selectedMarker = null, closestMarker = null;
+    let geoJsonData = null;
 
-    let currentImagePreview = ""; // Track the current image URL
-    let currentImageFull = ""; // Track the full image URL for fullscreen
-
-    // URL of your published Google Sheet CSV
+    // Load CSV data
     const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Fe-pYxXgok8xlvp4t10khMGF2j8vRrKf8Rt4q2KpN-7a-XSuvUPM0uPhs2w8gsrpBEkaPW2b7c2t/pub?output=csv';
-
-    let geoJsonData;
-
-    // Parse CSV data and initialize map features
     Papa.parse(googleSheetURL, {
       download: true,
       header: true,
@@ -184,135 +116,155 @@
     function convertToGeoJSON(photoData) {
       return {
         type: 'FeatureCollection',
-        features: photoData
-          .filter(photo => isValidCoordinates(photo.longitude, photo.latitude))
-          .map(photo => ({
-            type: 'Feature',
-            geometry: {
-              type: 'Point',
-              coordinates: [+photo.longitude, +photo.latitude]
-            },
-            properties: {
-              title: photo.title,
-              date: photo.date,
-              imagePreview: photo.imagePreview,
-              imageFull: photo.imageFull
-            }
-          }))
+        features: photoData.filter(photo => isValidCoordinates(photo.longitude, photo.latitude)).map(photo => ({
+          type: 'Feature',
+          geometry: { type: 'Point', coordinates: [+photo.longitude, +photo.latitude] },
+          properties: {
+            title: photo.title,
+            date: photo.date,
+            imagePreview: validateImageURL(photo.imagePreview),
+            imageFull: validateImageURL(photo.imageFull)
+          }
+        }))
       };
+    }
+
+    // Validate image URLs (check if they start with 'http' or handle Google Drive URLs)
+    function validateImageURL(url) {
+      if (!url) return '';  // Return empty if the URL is not valid
+      if (url.startsWith('https://drive.google.com/file/d/')) {
+        const fileId = url.split('/d/')[1].split('/')[0];
+        return `https://drive.google.com/uc?export=view&id=${fileId}`;  // Convert Google Drive URL to direct image
+      }
+      return url.startsWith('http') ? url : '';  // Return valid http/https URL, otherwise return empty
     }
 
     // Check for valid coordinates
     function isValidCoordinates(lng, lat) {
-      const longitude = parseFloat(lng), latitude = parseFloat(lat);
-      return !isNaN(longitude) && !isNaN(latitude) && latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
+      return !isNaN(lng) && !isNaN(lat) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     }
 
-    // Setup the map with markers and line
+    // Setup map features and layers
     function setupMapFeatures(geoJsonData) {
-      // Add a source for non-clustered markers
-      map.addSource('photos', {
-        type: 'geojson',
-        data: geoJsonData
-      });
+      if (!geoJsonData || !geoJsonData.features) {
+        console.error("No valid data available");
+        return;
+      }
 
-      // Add a layer for unclustered points
+      map.addSource('photos', { type: 'geojson', data: geoJsonData });
       map.addLayer({
         id: 'unclustered-point',
         type: 'circle',
         source: 'photos',
         paint: {
-          'circle-color': '#11b4da',
+          'circle-color': '#FF9900',  // Orange markers
           'circle-radius': 8,
           'circle-stroke-width': 1,
           'circle-stroke-color': '#fff'
         }
       });
 
-      // Add a source for the line from the crosshair to the closest marker
+      map.on('move', updateUIToClosestMarker);
+      map.on('click', 'unclustered-point', e => handleMarkerClick(e.features[0]));
       map.addSource('crosshair-line', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-
-      // Add a layer to display the line
       map.addLayer({
         id: 'crosshair-line-layer',
         type: 'line',
         source: 'crosshair-line',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#ff0000', 'line-width': 3 }
+        paint: { 'line-color': '#ff0000', 'line-width': 5 }  // Thicker red line
       });
-
-      // Update line and dialog to closest marker whenever the map moves
-      map.on('move', updateUIToClosestMarker);
     }
 
-    // Find the closest marker to the crosshair (map center) using Turf.js
-    function findClosestMarker(mapCenter, features) {
-      const from = turf.point([mapCenter.lng, mapCenter.lat]);
-      let minDistance = Infinity, closestMarker = null;
+    // Handle marker click to select, zoom, and enlarge
+    function handleMarkerClick(clickedFeature) {
+      if (selectedMarker && selectedMarker !== clickedFeature) {
+        // Reset the previously selected marker to default size
+        map.setPaintProperty('unclustered-point', 'circle-radius', 8);
+      }
+      selectedMarker = clickedFeature;
 
-      features.forEach(feature => {
-        const to = turf.point(feature.geometry.coordinates);
-        const distance = turf.distance(from, to);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestMarker = feature;
-        }
-      });
+      // Zoom to the selected marker and center the map on it
+      const { coordinates } = selectedMarker.geometry;
+      map.flyTo({ center: coordinates, zoom: 14, essential: true });  // Smooth zoom to the marker
 
-      return closestMarker;
+      map.setPaintProperty('unclustered-point', 'circle-radius', ['case', ['==', ['get', 'title'], selectedMarker.properties.title], 16, 8]);
+
+      const { title, imagePreview, imageFull } = selectedMarker.properties;
+      updateDialog(title, imagePreview, imageFull);
     }
 
-    // Update the line and dialog for the closest marker
+    // Update the UI for the closest marker and red line
     function updateUIToClosestMarker() {
-      const mapCenter = map.getCenter();
-      const closestMarker = findClosestMarker(mapCenter, geoJsonData.features);
+      if (!geoJsonData || !geoJsonData.features) {
+        console.error("No valid geoJsonData to process.");
+        return;
+      }
 
-      if (closestMarker) {
-        // Update the line
-        const lineData = {
+      const { closestMarker, closestMarkerDistance } = findClosestMarker(map.getCenter(), geoJsonData.features);
+      if (closestMarker && closestMarkerDistance < 5) {
+        // Override if the red line finds a marker within range
+        selectedMarker = closestMarker;
+        map.getSource('crosshair-line').setData({
           type: 'FeatureCollection',
           features: [{
             type: 'Feature',
             geometry: {
               type: 'LineString',
-              coordinates: [[mapCenter.lng, mapCenter.lat], closestMarker.geometry.coordinates]
+              coordinates: [[map.getCenter().lng, map.getCenter().lat], closestMarker.geometry.coordinates]
             }
           }]
-        };
-        map.getSource('crosshair-line').setData(lineData);
-
-        // Update the dialog with the marker details
-        const properties = closestMarker.properties;
-        document.getElementById('dialog-title').textContent = properties.title;
-        document.getElementById('dialog-date').textContent = properties.date;
-
-        // If image preview exists, set it, otherwise use grey placeholder
-        if (properties.imagePreview && properties.imagePreview !== currentImagePreview) {
-          document.getElementById('dialog-image').src = properties.imagePreview;
-          document.getElementById('dialog-image').style.backgroundColor = "transparent";
-          currentImagePreview = properties.imagePreview; // Update current image
-        } else if (!properties.imagePreview) {
-          document.getElementById('dialog-image').src = ""; // No image to load
-          document.getElementById('dialog-image').style.backgroundColor = "#ccc"; // Grey placeholder
-        }
-
-        // Track full image for fullscreen modal
-        currentImageFull = properties.imageFull;
-
-        // Show the dialog
-        document.getElementById('photo-dialog').classList.add('show');
+        });
+        map.setPaintProperty('unclustered-point', 'circle-radius', ['case', ['==', ['get', 'title'], closestMarker.properties.title], 16, 8]);
+        
+        const { title, imagePreview, imageFull } = closestMarker.properties;
+        updateDialog(title, imagePreview, imageFull);
+      } else {
+        map.getSource('crosshair-line').setData({ type: 'FeatureCollection', features: [] });
+        map.setPaintProperty('unclustered-point', 'circle-radius', 8);
+        document.getElementById('photo-dialog').style.display = 'none';
       }
     }
 
-    // Event listener for clicking the dialog image to show fullscreen
-    document.getElementById('dialog-image').addEventListener('click', () => {
+    // Find the closest marker to the crosshair
+    function findClosestMarker(mapCenter, features) {
+      const from = turf.point([mapCenter.lng, mapCenter.lat]);
+      let minDistance = Infinity;
+      features.forEach(feature => {
+        const distance = turf.distance(from, turf.point(feature.geometry.coordinates));
+        if (distance < minDistance) {
+          minDistance = distance;
+          closestMarker = feature;
+        }
+      });
+      return { closestMarker, closestMarkerDistance: minDistance };
+    }
+
+    // Update the dialog
+    function updateDialog(title, imagePreview, imageFull) {
+      document.getElementById('dialog-title').textContent = title;
+      document.getElementById('photo-dialog').style.display = 'flex';
+
+      if (imagePreview && imagePreview.startsWith('http')) {
+        document.getElementById('dialog-image').src = imagePreview;
+        document.getElementById('dialog-image').style.backgroundColor = "transparent";  // Remove grey if image is valid
+        currentImagePreview = imagePreview;
+      } else {
+        document.getElementById('dialog-image').src = "";  // No image preview, show placeholder
+        document.getElementById('dialog-image').style.backgroundColor = "#ccc";  // Set to grey placeholder
+      }
+
+      currentImageFull = imageFull;
+    }
+
+    // Open fullscreen mode when dialog image is clicked
+    document.getElementById('photo-dialog').addEventListener('click', () => {
       if (currentImageFull) {
         document.getElementById('fullscreen-image').src = currentImageFull;
         document.getElementById('fullscreen-modal').style.display = 'flex';
       }
     });
 
-    // Close fullscreen modal
     document.getElementById('close-modal').addEventListener('click', () => {
       document.getElementById('fullscreen-modal').style.display = 'none';
     });
