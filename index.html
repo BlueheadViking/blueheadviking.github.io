@@ -3,31 +3,41 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>GeoPic V2.19</title>
+  <title>GeoPic V2.23</title>
 
   <!-- Mapbox GL JS CSS -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
 
-  <!-- Google Fonts: Material Symbols -->
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+  <!-- Google Fonts: Material Symbols Rounded + Zilla Slab -->
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <!-- Include Turf.js Library -->
   <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
 
   <!-- Style -->
   <style>
-    body { margin: 0; padding: 0; }
-    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Zilla Slab', serif;
+    }
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
 
-    /* Crosshair Style */
+    /* Crosshair Style using Material Icon */
     .crosshair {
       position: absolute;
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      font-family: 'Material Symbols Outlined';
-      font-size: 40px;
-      color: #5f6368;
+      font-family: 'Material Symbols Rounded', sans-serif;
+      font-size: 50px;
+      color: #5f6368; /* Color as per link */
       pointer-events: none;
       z-index: 1000;
     }
@@ -40,10 +50,10 @@
       right: 1rem;
       max-width: 500px;
       margin: 0 auto;
-      background: rgba(255,255,255,0.9);
-      box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
       border-radius: 1rem;
-      font-family: Arial, sans-serif;
+      font-family: 'Zilla Slab', serif;
       display: flex;
       flex-direction: column;
       padding: 0;
@@ -61,8 +71,8 @@
 
     .dialog-title {
       padding: 10px;
-      font-size: 12px;
-      font-weight: bold;
+      font-size: 14px;
+      font-weight: 600;
       text-transform: uppercase;
       color: #555;
       border-bottom-left-radius: 1rem;
@@ -108,16 +118,32 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      z-index: 3000;
-      font-family: Arial, sans-serif;
-      color: white;
       flex-direction: column;
+      z-index: 3000;
+      font-family: 'Zilla Slab', serif;
+      color: white;
+      text-align: center;
     }
 
-    #loading-screen p {
-      margin-top: 20px;
-      font-size: 14px;
-      text-transform: uppercase;
+    #loading-screen h1 {
+      margin-bottom: 10px;
+      font-size: 30px;
+      font-weight: 700;
+    }
+
+    #loading-screen h2 {
+      margin-top: -10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #FFA500;
+    }
+
+    #loading-screen footer {
+      position: absolute;
+      bottom: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px;
+      font-weight: 400;
     }
 
     /* Progress Bar */
@@ -134,24 +160,26 @@
       height: 100%;
       width: 0;
       background-color: #FFA500;
-      transition: width 2s ease; /* Updated to 2 seconds */
+      transition: width 2s ease;
     }
   </style>
 </head>
 <body>
   <!-- Loading Screen -->
   <div id="loading-screen">
-    <p>Loading</p>
+    <h1>PHOTOS,</h1>
+    <h2>GEOGRAPHICALLY</h2>
     <div class="progress-bar">
       <div class="progress-bar-fill"></div>
     </div>
+    <footer>GRIM.NZ</footer>
   </div>
 
   <!-- Map Container -->
   <div id="map"></div>
 
-  <!-- Crosshair using Material Symbol "add" -->
-  <div class="crosshair">add</div>
+  <!-- Crosshair using Material Symbol "add_box" -->
+  <div class="crosshair">add_box</div>
 
   <div id="photo-dialog" class="dialog">
     <img id="dialog-image" src="" alt="Image Preview">
