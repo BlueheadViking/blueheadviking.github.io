@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>GeoPic V2.23</title>
+  <title>GeoPic V2.24</title>
 
   <!-- Mapbox GL JS CSS -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
@@ -37,7 +37,7 @@
       transform: translate(-50%, -50%);
       font-family: 'Material Symbols Rounded', sans-serif;
       font-size: 50px;
-      color: #5f6368; /* Color as per link */
+      color: #5f6368;
       pointer-events: none;
       z-index: 1000;
     }
@@ -178,8 +178,8 @@
   <!-- Map Container -->
   <div id="map"></div>
 
-  <!-- Crosshair using Material Symbol "add_box" -->
-  <div class="crosshair">add_box</div>
+  <!-- Crosshair using Material Symbol "close" -->
+  <div class="crosshair">close</div>
 
   <div id="photo-dialog" class="dialog">
     <img id="dialog-image" src="" alt="Image Preview">
@@ -202,9 +202,9 @@
       style: 'mapbox://styles/blueheadviking/cm1dhffpz043i01r76eex9w4m/draft',
       center: [170.499, -45.877],
       zoom: 12,
-      pitchWithRotate: false,  // Disable map rotation with pitch
-      dragRotate: false,       // Disable drag-to-rotate
-      maxPitch: 0              // Fix the map's pitch so it can't tilt
+      pitchWithRotate: false,
+      dragRotate: false,
+      maxPitch: 0
     });
 
     let currentImagePreview = "", currentImageFull = "", selectedMarker = null, closestMarker = null;
@@ -212,17 +212,14 @@
 
     const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Fe-pYxXgok8xlvp4t10khMGF2j8vRrKf8Rt4q2KpN-7a-XSuvUPM0uPhs2w8gsrpBEkaPW2b7c2t/pub?output=csv';
 
-    // Display loading screen for 2 seconds but do not block content loading
     document.addEventListener("DOMContentLoaded", function() {
       const loadingScreen = document.getElementById("loading-screen");
       const progressBarFill = document.querySelector(".progress-bar-fill");
 
-      // Simulate loading process with progress bar
       setTimeout(() => {
         progressBarFill.style.width = "100%";
       }, 100);
 
-      // Don't block content loading; let it load in the background
       map.on('load', function() {
         Papa.parse(googleSheetURL, {
           download: true,
@@ -230,19 +227,17 @@
           complete: results => {
             geoJsonData = convertToGeoJSON(results.data);
             setupMapFeatures(geoJsonData);
-            updateUIToClosestMarker(); // Ensure the closest marker is selected on load
+            updateUIToClosestMarker();
           },
           error: err => console.error('Error fetching or parsing data:', err)
         });
       });
 
-      // Hide loading screen after 2 seconds
       setTimeout(() => {
         loadingScreen.style.display = 'none';
-      }, 2000);  // 2 seconds loading screen
+      }, 2000);
     });
 
-    // Convert parsed CSV data to GeoJSON format
     function convertToGeoJSON(photoData) {
       return {
         type: 'FeatureCollection',
@@ -259,7 +254,6 @@
       };
     }
 
-    // Validate and format image URLs
     function validateImageURL(url) {
       if (!url) return '';
       if (url.startsWith('https://drive.google.com/file/d/')) {
@@ -269,29 +263,25 @@
       return url.startsWith('http') ? url : '';
     }
 
-    // Check for valid coordinates
     function isValidCoordinates(lng, lat) {
       return !isNaN(lng) && !isNaN(lat) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
     }
 
-    // Setup map features (markers, lines) from GeoJSON
     function setupMapFeatures(geoJsonData) {
       if (!geoJsonData || !geoJsonData.features) {
         console.error("No valid data available");
         return;
       }
 
-      // Add yellow line layer first so it is under markers
       map.addSource('crosshair-line', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
       map.addLayer({
         id: 'crosshair-line-layer',
         type: 'line',
         source: 'crosshair-line',
         layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#FFFF00', 'line-width': 5 } // Yellow line
+        paint: { 'line-color': '#FFFF00', 'line-width': 5 }
       });
 
-      // Add markers after the line layer
       map.addSource('photos', { type: 'geojson', data: geoJsonData });
       map.addLayer({
         id: 'unclustered-point',
@@ -309,7 +299,6 @@
       map.on('click', 'unclustered-point', e => handleMarkerClick(e.features[0]));
     }
 
-    // Handle marker click event
     function handleMarkerClick(clickedFeature) {
       if (selectedMarker && selectedMarker !== clickedFeature) {
         map.setPaintProperty('unclustered-point', 'circle-radius', 8);
@@ -322,22 +311,20 @@
       updateDialog(title, imagePreview, imageFull);
     }
 
-    // Calculate max distance based on screen size and zoom level
     function calculateMaxDistance(map) {
       const zoomLevel = map.getZoom();
       const viewportWidthInKm = (40075 / Math.pow(2, zoomLevel)) * (window.innerWidth / 256);
-      const maxDistance = viewportWidthInKm * 0.05; // Set to 5% of screen width in km
+      const maxDistance = viewportWidthInKm * 0.05;
       return maxDistance;
     }
 
-    // Update UI for the closest marker
     function updateUIToClosestMarker() {
       if (!geoJsonData || !geoJsonData.features) {
         console.error("No valid geoJsonData to process.");
         return;
       }
 
-      const maxDistance = calculateMaxDistance(map); // Dynamic max distance based on zoom level
+      const maxDistance = calculateMaxDistance(map);
       const { closestMarker, closestMarkerDistance } = findClosestMarker(map.getCenter(), geoJsonData.features);
 
       if (closestMarker && closestMarkerDistance < maxDistance) {
@@ -359,7 +346,6 @@
       }
     }
 
-    // Find the closest marker to the map center
     function findClosestMarker(mapCenter, features) {
       const from = turf.point([mapCenter.lng, mapCenter.lat]);
       let minDistance = Infinity;
@@ -373,7 +359,6 @@
       return { closestMarker, closestMarkerDistance: minDistance };
     }
 
-    // Update the dialog with selected marker's information
     function updateDialog(title, imagePreview, imageFull) {
       document.getElementById('dialog-title').textContent = title;
       document.getElementById('photo-dialog').style.display = 'flex';
