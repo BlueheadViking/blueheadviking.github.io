@@ -199,7 +199,7 @@
 
     const map = new mapboxgl.Map({
       container: 'map',
-      style: 'mapbox://styles/blueheadviking/cm1dhffpz043i01r76eex9w4m/draft',
+      style: 'mapbox://styles/mapbox/streets-v11', // Updated style to a known working style
       center: [170.499, -45.877],
       zoom: 12,
       pitchWithRotate: false,
@@ -226,8 +226,12 @@
           header: true,
           complete: results => {
             geoJsonData = convertToGeoJSON(results.data);
-            setupMapFeatures(geoJsonData);
-            updateUIToClosestMarker();
+            if (geoJsonData) {
+              setupMapFeatures(geoJsonData);
+              updateUIToClosestMarker();
+            } else {
+              console.error('Failed to convert CSV data to GeoJSON.');
+            }
           },
           error: err => console.error('Error fetching or parsing data:', err)
         });
@@ -239,6 +243,7 @@
     });
 
     function convertToGeoJSON(photoData) {
+      if (!photoData) return null;
       return {
         type: 'FeatureCollection',
         features: photoData.filter(photo => isValidCoordinates(photo.longitude, photo.latitude)).map(photo => ({
@@ -273,33 +278,53 @@
         return;
       }
 
-      map.addSource('crosshair-line', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-      map.addLayer({
-        id: 'crosshair-line-layer',
-        type: 'line',
-        source: 'crosshair-line',
-        layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': '#FFFF00', 'line-width': 5 }
-      });
+      if (!map.getSource('crosshair-line')) {
+        map.addSource('crosshair-line', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+      }
 
-      map.addSource('photos', { type: 'geojson', data: geoJsonData });
-      map.addLayer({
-        id: 'unclustered-point',
-        type: 'circle',
-        source: 'photos',
-        paint: {
-          'circle-color': '#FF9900',
-          'circle-radius': 8,
-          'circle-stroke-width': 1,
-          'circle-stroke-color': '#fff'
+      if (!map.getLayer('crosshair-line-layer')) {
+        map.addLayer({
+          id: 'crosshair-line-layer',
+          type: 'line',
+          source: 'crosshair-line',
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: { 'line-color': '#FFFF00', 'line-width': 5 }
+        });
+      }
+
+      if (!map.getSource('photos')) {
+        map.addSource('photos', { type: 'geojson', data: geoJsonData });
+      }
+
+      if (!map.getLayer('unclustered-point')) {
+        map.addLayer({
+          id: 'unclustered-point',
+          type: 'circle',
+          source: 'photos',
+          paint: {
+            'circle-color': '#FF9900',
+            'circle-radius': 8,
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#fff'
+          }
+        });
+      }
+
+      map.on('move', () => {
+        if (map.getSource('photos')) {
+          updateUIToClosestMarker();
         }
       });
 
-      map.on('move', updateUIToClosestMarker);
-      map.on('click', 'unclustered-point', e => handleMarkerClick(e.features[0]));
+      map.on('click', 'unclustered-point', e => {
+        if (e.features && e.features.length > 0) {
+          handleMarkerClick(e.features[0]);
+        }
+      });
     }
 
     function handleMarkerClick(clickedFeature) {
+      if (!clickedFeature) return;
       if (selectedMarker && selectedMarker !== clickedFeature) {
         map.setPaintProperty('unclustered-point', 'circle-radius', 8);
       }
@@ -329,18 +354,22 @@
 
       if (closestMarker && closestMarkerDistance < maxDistance) {
         selectedMarker = closestMarker;
-        map.getSource('crosshair-line').setData({
-          type: 'FeatureCollection',
-          features: [{
-            type: 'Feature',
-            geometry: { type: 'LineString', coordinates: [[map.getCenter().lng, map.getCenter().lat], closestMarker.geometry.coordinates] }
-          }]
-        });
+        if (map.getSource('crosshair-line')) {
+          map.getSource('crosshair-line').setData({
+            type: 'FeatureCollection',
+            features: [{
+              type: 'Feature',
+              geometry: { type: 'LineString', coordinates: [[map.getCenter().lng, map.getCenter().lat], closestMarker.geometry.coordinates] }
+            }]
+          });
+        }
         map.setPaintProperty('unclustered-point', 'circle-radius', ['case', ['==', ['get', 'title'], closestMarker.properties.title], 16, 8]);
         const { title, imagePreview, imageFull } = closestMarker.properties;
         updateDialog(title, imagePreview, imageFull);
       } else {
-        map.getSource('crosshair-line').setData({ type: 'FeatureCollection', features: [] });
+        if (map.getSource('crosshair-line')) {
+          map.getSource('crosshair-line').setData({ type: 'FeatureCollection', features: [] });
+        }
         map.setPaintProperty('unclustered-point', 'circle-radius', 8);
         document.getElementById('photo-dialog').style.display = 'none';
       }
@@ -349,14 +378,15 @@
     function findClosestMarker(mapCenter, features) {
       const from = turf.point([mapCenter.lng, mapCenter.lat]);
       let minDistance = Infinity;
+      let nearestFeature = null;
       features.forEach(feature => {
         const distance = turf.distance(from, turf.point(feature.geometry.coordinates));
         if (distance < minDistance) {
           minDistance = distance;
-          closestMarker = feature;
+          nearestFeature = feature;
         }
       });
-      return { closestMarker, closestMarkerDistance: minDistance };
+      return { closestMarker: nearestFeature, closestMarkerDistance: minDistance };
     }
 
     function updateDialog(title, imagePreview, imageFull) {
