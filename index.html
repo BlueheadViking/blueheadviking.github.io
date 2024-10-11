@@ -3,14 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
-  <title>GeoPic V2.24</title>
+  <title>GeoPic V2.27</title>
 
   <!-- Mapbox GL JS CSS -->
   <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
 
-  <!-- Google Fonts: Material Symbols Rounded + Zilla Slab -->
+  <!-- Google Fonts: Material Symbols Rounded + Zilla Slab + Roboto -->
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght@400&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400&display=swap" rel="stylesheet">
 
   <!-- Include Turf.js Library -->
   <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
@@ -42,69 +43,63 @@
       z-index: 1000;
     }
 
-    /* Dialog Style */
-    .dialog {
+    /* Info Panel Style */
+    .info-panel {
       position: fixed;
-      bottom: 3rem;
-      left: 1rem;
-      right: 1rem;
-      max-width: 500px;
-      margin: 0 auto;
+      top: 2rem;
+      left: -350px;
+      width: 300px;
       background: rgba(255, 255, 255, 0.9);
       box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-      border-radius: 1rem;
-      font-family: 'Zilla Slab', serif;
-      display: flex;
-      flex-direction: column;
-      padding: 0;
-      cursor: pointer;
+      border-radius: 12px;
+      padding: 0.5rem;
+      transition: all 0.3s cubic-bezier(0.25, 1.15, 0.5, 1);
+      z-index: 1500;
     }
 
-    .dialog img {
+    .info-panel.show {
+      left: 2rem;
+    }
+
+    .info-panel img {
       width: 100%;
-      height: 150px;
+      height: auto;
+      max-height: 150px;
       object-fit: cover;
-      border-top-left-radius: 1rem;
-      border-top-right-radius: 1rem;
+      border-radius: 6px;
       background-color: #ccc;
     }
 
-    .dialog-title {
-      padding: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      text-transform: uppercase;
-      color: #555;
-      border-bottom-left-radius: 1rem;
-      border-bottom-right-radius: 1rem;
-    }
-
-    .fullscreen-modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.8);
-      z-index: 2000;
-      justify-content: center;
+    .info-panel-header {
+      display: flex;
+      justify-content: space-between;
       align-items: center;
+      margin: 10px 0 5px;
     }
 
-    .fullscreen-modal img {
-      width: 80%;
-      height: auto;
-      border-radius: 1rem;
+    .info-panel-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #333;
     }
 
-    .fullscreen-modal .close {
-      position: absolute;
-      top: 20px;
-      right: 20px;
-      color: white;
-      font-size: 30px;
-      cursor: pointer;
+    .info-panel-date {
+      font-size: 0.9rem;
+      color: #777;
+    }
+
+    .info-panel-story {
+      font-family: 'Roboto', sans-serif;
+      font-size: 0.875rem;
+      color: #555;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+
+    .info-panel-photographer {
+      font-size: 1rem;
+      font-weight: 700;
+      color: rgba(0, 0, 0, 0.5);
     }
 
     /* Loading Screen Style */
@@ -181,13 +176,15 @@
   <!-- Crosshair using Material Symbol "close" -->
   <div class="crosshair">close</div>
 
-  <div id="photo-dialog" class="dialog">
-    <img id="dialog-image" src="" alt="Image Preview">
-    <div id="dialog-title" class="dialog-title">Title</div>
-  </div>
-
-  <div id="fullscreen-modal" class="fullscreen-modal">
-    <span id="close-modal" class="close">&times;</span><img id="fullscreen-image" src="" alt="Full Image">
+  <!-- Info Panel -->
+  <div id="photo-panel" class="info-panel">
+    <img id="panel-image" src="" alt="Image Preview">
+    <div class="info-panel-header">
+      <div id="panel-title" class="info-panel-title">Title</div>
+      <div id="panel-date" class="info-panel-date">Date</div>
+    </div>
+    <div id="panel-story" class="info-panel-story">Story</div>
+    <div id="panel-photographer" class="info-panel-photographer">Photographer</div>
   </div>
 
   <!-- Mapbox GL JS and Papa Parse for CSV Parsing -->
@@ -199,7 +196,7 @@
 
     const map = new mapboxgl.Map({
       container: 'map',
-      style: 'mapbox://styles/blueheadviking/cm1j3cxlm008h01ra5mys2q4j', // Updated style to a known working style
+      style: 'mapbox://styles/blueheadviking/cm1j3cxlm008h01ra5mys2q4j',
       center: [170.499, -45.877],
       zoom: 12,
       pitchWithRotate: false,
@@ -207,7 +204,6 @@
       maxPitch: 0
     });
 
-    let currentImagePreview = "", currentImageFull = "", selectedMarker = null, closestMarker = null;
     let geoJsonData = null;
 
     const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Fe-pYxXgok8xlvp4t10khMGF2j8vRrKf8Rt4q2KpN-7a-XSuvUPM0uPhs2w8gsrpBEkaPW2b7c2t/pub?output=csv';
@@ -252,6 +248,8 @@
           properties: {
             title: photo.title,
             date: photo.date,
+            story: photo.story,
+            photographer: photo.photographer,
             imagePreview: validateImageURL(photo.imagePreview),
             imageFull: validateImageURL(photo.imageFull)
           }
@@ -325,15 +323,10 @@
 
     function handleMarkerClick(clickedFeature) {
       if (!clickedFeature) return;
-      if (selectedMarker && selectedMarker !== clickedFeature) {
-        map.setPaintProperty('unclustered-point', 'circle-radius', 8);
-      }
-      selectedMarker = clickedFeature;
-      const { coordinates } = selectedMarker.geometry;
+      const { coordinates } = clickedFeature.geometry;
       map.flyTo({ center: coordinates, zoom: 14, essential: true });
-      map.setPaintProperty('unclustered-point', 'circle-radius', ['case', ['==', ['get', 'title'], selectedMarker.properties.title], 16, 8]);
-      const { title, imagePreview, imageFull } = selectedMarker.properties;
-      updateDialog(title, imagePreview, imageFull);
+      const { title, date, story, photographer, imagePreview } = clickedFeature.properties;
+      updatePanel(title, date, story, photographer, imagePreview);
     }
 
     function calculateMaxDistance(map) {
@@ -353,7 +346,6 @@
       const { closestMarker, closestMarkerDistance } = findClosestMarker(map.getCenter(), geoJsonData.features);
 
       if (closestMarker && closestMarkerDistance < maxDistance) {
-        selectedMarker = closestMarker;
         if (map.getSource('crosshair-line')) {
           map.getSource('crosshair-line').setData({
             type: 'FeatureCollection',
@@ -363,15 +355,13 @@
             }]
           });
         }
-        map.setPaintProperty('unclustered-point', 'circle-radius', ['case', ['==', ['get', 'title'], closestMarker.properties.title], 16, 8]);
-        const { title, imagePreview, imageFull } = closestMarker.properties;
-        updateDialog(title, imagePreview, imageFull);
+        const { title, date, story, photographer, imagePreview } = closestMarker.properties;
+        updatePanel(title, date, story, photographer, imagePreview);
       } else {
         if (map.getSource('crosshair-line')) {
           map.getSource('crosshair-line').setData({ type: 'FeatureCollection', features: [] });
         }
-        map.setPaintProperty('unclustered-point', 'circle-radius', 8);
-        document.getElementById('photo-dialog').style.display = 'none';
+        document.getElementById('photo-panel').classList.remove('show');
       }
     }
 
@@ -389,30 +379,21 @@
       return { closestMarker: nearestFeature, closestMarkerDistance: minDistance };
     }
 
-    function updateDialog(title, imagePreview, imageFull) {
-      document.getElementById('dialog-title').textContent = title;
-      document.getElementById('photo-dialog').style.display = 'flex';
+    function updatePanel(title, date, story, photographer, imagePreview) {
+      document.getElementById('panel-title').textContent = title;
+      document.getElementById('panel-date').textContent = date;
+      document.getElementById('panel-story').textContent = story;
+      document.getElementById('panel-photographer').textContent = photographer;
+      const panelImage = document.getElementById('panel-image');
       if (imagePreview && imagePreview.startsWith('http')) {
-        document.getElementById('dialog-image').src = imagePreview;
-        document.getElementById('dialog-image').style.backgroundColor = "transparent";
-        currentImagePreview = imagePreview;
+        panelImage.src = imagePreview;
+        panelImage.style.backgroundColor = "transparent";
       } else {
-        document.getElementById('dialog-image').src = "";
-        document.getElementById('dialog-image').style.backgroundColor = "#ccc";
+        panelImage.src = "";
+        panelImage.style.backgroundColor = "#ccc";
       }
-      currentImageFull = imageFull;
+      document.getElementById('photo-panel').classList.add('show');
     }
-
-    document.getElementById('photo-dialog').addEventListener('click', () => {
-      if (currentImageFull) {
-        document.getElementById('fullscreen-image').src = currentImageFull;
-        document.getElementById('fullscreen-modal').style.display = 'flex';
-      }
-    });
-
-    document.getElementById('close-modal').addEventListener('click', () => {
-      document.getElementById('fullscreen-modal').style.display = 'none';
-    });
   </script>
 </body>
 </html>
