@@ -43,7 +43,7 @@
       z-index: 1000;
     }
 
-    /* Info Panel Style */
+    /* Info Panel Style for Desktop */
     .info-panel {
       position: fixed;
       top: 2rem;
@@ -61,7 +61,28 @@
       left: 2rem;
     }
 
-    .info-panel img {
+    /* Info Drawer Style for Mobile */
+    .info-drawer {
+      display: none;
+      position: fixed;
+      bottom: -350px;
+      transform: translateY(80%);
+      max-width: 500px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.2);
+      border-radius: 12px 12px 0 0;
+      padding: 0.5rem;
+      transition: all 0.3s cubic-bezier(0.25, 1.15, 0.5, 1);
+      z-index: 1500;
+      margin: 0 0.5rem;
+    }
+
+    .info-drawer.show {
+      bottom: 0;
+    }
+
+    .info-panel img,
+    .info-drawer img {
       width: 100%;
       height: auto;
       max-height: 150px;
@@ -70,25 +91,29 @@
       background-color: #ccc;
     }
 
-    .info-panel-header {
+    .info-panel-header,
+    .info-drawer-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
       margin: 10px 0 5px;
     }
 
-    .info-panel-title {
+    .info-panel-title,
+    .info-drawer-title {
       font-size: 1.2rem;
       font-weight: 700;
       color: #333;
     }
 
-    .info-panel-date {
+    .info-panel-date,
+    .info-drawer-date {
       font-size: 0.9rem;
       color: #777;
     }
 
-    .info-panel-story {
+    .info-panel-story,
+    .info-drawer-story {
       font-family: 'Roboto', sans-serif;
       font-size: 0.875rem;
       color: #555;
@@ -96,7 +121,8 @@
       margin-bottom: 1rem;
     }
 
-    .info-panel-photographer {
+    .info-panel-photographer,
+    .info-drawer-photographer {
       font-size: 1rem;
       font-weight: 700;
       color: rgba(0, 0, 0, 0.5);
@@ -157,6 +183,16 @@
       background-color: #FFA500;
       transition: width 2s ease;
     }
+
+    @media (max-width: 768px) {
+      .info-panel {
+        display: none;
+      }
+
+      .info-drawer {
+        display: block;
+      }
+    }
   </style>
 </head>
 <body>
@@ -176,7 +212,7 @@
   <!-- Crosshair using Material Symbol "close" -->
   <div class="crosshair">close</div>
 
-  <!-- Info Panel -->
+  <!-- Info Panel (Desktop) -->
   <div id="photo-panel" class="info-panel">
     <img id="panel-image" src="" alt="Image Preview">
     <div class="info-panel-header">
@@ -184,7 +220,18 @@
       <div id="panel-date" class="info-panel-date">Date</div>
     </div>
     <div id="panel-story" class="info-panel-story">Story</div>
-    <div id="panel-photographer" class="info-panel-photographer">Photographer</div>
+    <div id="panel-photographer" class="info-panel-photographer"></div>
+  </div>
+
+  <!-- Info Drawer (Mobile) -->
+  <div id="photo-drawer" class="info-drawer">
+    <img id="drawer-image" src="" alt="Image Preview">
+    <div class="info-drawer-header">
+      <div id="drawer-title" class="info-drawer-title">Title</div>
+      <div id="drawer-date" class="info-drawer-date">Date</div>
+    </div>
+    <div id="drawer-story" class="info-drawer-story">Story</div>
+    <div id="drawer-photographer" class="info-drawer-photographer"></div>
   </div>
 
   <!-- Mapbox GL JS and Papa Parse for CSV Parsing -->
@@ -362,6 +409,7 @@
           map.getSource('crosshair-line').setData({ type: 'FeatureCollection', features: [] });
         }
         document.getElementById('photo-panel').classList.remove('show');
+        document.getElementById('photo-drawer').classList.remove('show');
       }
     }
 
@@ -380,19 +428,60 @@
     }
 
     function updatePanel(title, date, story, photographer, imagePreview) {
-      document.getElementById('panel-title').textContent = title;
-      document.getElementById('panel-date').textContent = date;
-      document.getElementById('panel-story').textContent = story;
-      document.getElementById('panel-photographer').textContent = photographer;
-      const panelImage = document.getElementById('panel-image');
-      if (imagePreview && imagePreview.startsWith('http')) {
-        panelImage.src = imagePreview;
-        panelImage.style.backgroundColor = "transparent";
+      const isMobile = window.innerWidth <= 768;
+      if (isMobile) {
+        document.getElementById('drawer-title').textContent = title;
+        document.getElementById('drawer-date').textContent = date;
+        document.getElementById('drawer-story').textContent = story;
+
+        const photographerElement = document.getElementById('drawer-photographer');
+        if (photographer.startsWith('@')) {
+          const photographerLink = document.createElement('a');
+          photographerLink.href = `https://instagram.com/${photographer.substring(1)}`;
+          photographerLink.target = '_blank';
+          photographerLink.textContent = photographer;
+          photographerElement.innerHTML = '';
+          photographerElement.appendChild(photographerLink);
+        } else {
+          photographerElement.textContent = photographer;
+        }
+
+        const drawerImage = document.getElementById('drawer-image');
+        if (imagePreview && imagePreview.startsWith('http')) {
+          drawerImage.src = imagePreview;
+          drawerImage.style.backgroundColor = "transparent";
+        } else {
+          drawerImage.src = "";
+          drawerImage.style.backgroundColor = "#ccc";
+        }
+        document.getElementById('photo-drawer').classList.add('show');
       } else {
-        panelImage.src = "";
-        panelImage.style.backgroundColor = "#ccc";
+        document.getElementById('panel-title').textContent = title;
+        document.getElementById('panel-date').textContent = date;
+        document.getElementById('panel-story').textContent = story;
+
+        const photographerElement = document.getElementById('panel-photographer');
+        if (photographer.startsWith('@')) {
+          const photographerLink = document.createElement('a');
+          photographerLink.href = `https://instagram.com/${photographer.substring(1)}`;
+          photographerLink.target = '_blank';
+          photographerLink.textContent = photographer;
+          photographerElement.innerHTML = '';
+          photographerElement.appendChild(photographerLink);
+        } else {
+          photographerElement.textContent = photographer;
+        }
+
+        const panelImage = document.getElementById('panel-image');
+        if (imagePreview && imagePreview.startsWith('http')) {
+          panelImage.src = imagePreview;
+          panelImage.style.backgroundColor = "transparent";
+        } else {
+          panelImage.src = "";
+          panelImage.style.backgroundColor = "#ccc";
+        }
+        document.getElementById('photo-panel').classList.add('show');
       }
-      document.getElementById('photo-panel').classList.add('show');
     }
   </script>
 </body>
