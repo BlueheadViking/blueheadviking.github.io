@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>GeoPic V2.27</title>
+
+  <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:wght@400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Zilla+Slab:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400&display=swap" rel="stylesheet">
+
+  <style>
+    a { color: #ea7a15; }
+    body { margin: 0; padding: 0; font-family: 'Zilla Slab', serif; }
+    #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .crosshair {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-family: 'Material Symbols Rounded', sans-serif;
+      font-size: 50px;
+      color: #5f6368;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    .info-panel {
+      position: fixed;
+      top: 2rem;
+      left: -350px;
+      width: 300px;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      padding: 0.5rem;
+      transition: all 0.3s cubic-bezier(0.25, 1.15, 0.5, 1);
+      z-index: 1500;
+    }
+    .info-panel.show { left: 2rem; }
+    .info-drawer {
+      display: none;
+      position: fixed;
+      bottom: -350px;
+      transform: translateY(80%);
+      max-width: 500px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.2);
+      border-radius: 12px 12px 0 0;
+      padding: 0.5rem;
+      transition: all 0.3s cubic-bezier(0.25, 1.15, 0.5, 1);
+      z-index: 1500;
+      margin: 0 0.5rem;
+    }
+    .info-drawer.show { bottom: 0; }
+    .info-panel img, .info-drawer img {
+      width: 100%;
+      height: auto;
+      max-height: 150px;
+      object-fit: cover;
+      border-radius: 6px;
+      background-color: #ccc;
+    }
+    .info-panel-header, .info-drawer-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 10px 0 5px;
+    }
+    .info-panel-title, .info-drawer-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #333;
+    }
+    .info-panel-date, .info-drawer-date { font-size: 0.9rem; color: #777; }
+    .info-panel-story, .info-drawer-story {
+      font-family: 'Roboto', sans-serif;
+      font-size: 0.875rem;
+      color: #555;
+      line-height: 1.5;
+      margin-bottom: 1rem;
+    }
+    .info-panel-photographer, .info-drawer-photographer {
+      font-size: 1rem;
+      font-weight: 700;
+      color: rgba(0, 0, 0, 0.5);
+    }
+    #loading-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #1c1c1c;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      z-index: 3000;
+      font-family: 'Zilla Slab', serif;
+      color: white;
+      text-align: center;
+    }
+    #loading-screen h1 {
+      margin-bottom: 10px;
+      font-size: 30px;
+      font-weight: 700;
+    }
+    #loading-screen h2 {
+      margin-top: -10px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #FFA500;
+    }
+    #loading-screen footer {
+      position: absolute;
+      bottom: 20px;
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px;
+      font-weight: 400;
+    }
+    .progress-bar {
+      width: 200px;
+      height: 10px;
+      background-color: #444;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      width: 0;
+      background-color: #FFA500;
+      transition: width 2s ease;
+    }
+    @media (max-width: 768px) {
+      .info-panel { display: none; }
+      .info-drawer { display: block; }
+    }
+  </style>
+
+  <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
+</head>
+<body>
+  <div id="loading-screen">
+    <h1>PHOTOS,</h1>
+    <h2>GEOGRAPHICALLY</h2>
+    <div class="progress-bar">
+      <div class="progress-bar-fill"></div>
+    </div>
+    <footer>GRIM.NZ</footer>
+  </div>
+
+  <div id="map"></div>
+  <div class="crosshair">close</div>
+  <div id="photo-panel" class="info-panel">
+    <img id="panel-image" src="" alt="Image Preview">
+    <div class="info-panel-header">
+      <div id="panel-title" class="info-panel-title">Title</div>
+      <div id="panel-date" class="info-panel-date">Date</div>
+    </div>
+    <div id="panel-story" class="info-panel-story">Story</div>
+    <div id="panel-photographer" class="info-panel-photographer"></div>
+  </div>
+  <div id="photo-drawer" class="info-drawer">
+    <img id="drawer-image" src="" alt="Image Preview">
+    <div class="info-drawer-header">
+      <div id="drawer-title" class="info-drawer-title">Title</div>
+      <div id="drawer-date" class="info-drawer-date">Date</div>
+    </div>
+    <div id="drawer-story" class="info-drawer-story">Story</div>
+    <div id="drawer-photographer" class="info-drawer-photographer"></div>
+  </div>
+
+  <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      const loadingScreen = document.getElementById("loading-screen");
+      const progressBarFill = document.querySelector(".progress-bar-fill");
+      setTimeout(() => { progressBarFill.style.width = "100%"; }, 100);
+
+      mapboxgl.accessToken = 'pk.eyJ1IjoiYmx1ZWhlYWR2aWtpbmciLCJhIjoiY20xanRsa2YxMTJiOTJpb2d1ZHNycnpuMiJ9.j9-mp7VZxZ9Beqvx9LVP_g';
+      const map = new mapboxgl.Map({
+        container: 'map',
+        style: 'mapbox://styles/blueheadviking/cm1j3cxlm008h01ra5mys2q4j',
+        center: [170.499, -45.877],
+        zoom: 12,
+        pitchWithRotate: false,
+        dragRotate: false,
+        maxPitch: 0
+      });
+
+      let geoJsonData = null;
+      const googleSheetURL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3Fe-pYxXgok8xlvp4t10khMGF2j8vRrKf8Rt4q2KpN-7a-XSuvUPM0uPhs2w8gsrpBEkaPW2b7c2t/pub?output=csv';
+
+      map.on('load', function() {
+        Papa.parse(googleSheetURL, {
+          download: true,
+          header: true,
+          complete: results => {
+            geoJsonData = convertToGeoJSON(results.data);
+            if (geoJsonData) {
+              setupMapFeatures(geoJsonData);
+              updateUIToClosestMarker();
+            } else {
+              console.error('Failed to convert CSV data to GeoJSON.');
+            }
+          },
+          error: err => console.error('Error fetching or parsing data:', err)
+        });
+        setTimeout(() => { loadingScreen.style.display = 'none'; }, 3000);
+      });
+
+      function convertToGeoJSON(photoData) {
+        if (!photoData) return null;
+        return {
+          type: 'FeatureCollection',
+          features: photoData.filter(photo => isValidCoordinates(photo.longitude, photo.latitude)).map(photo => ({
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [+photo.longitude, +photo.latitude] },
+            properties: {
+              title: photo.title,
+              date: photo.date,
+              story: photo.story,
+              photographer: photo.photographer,
+              imagePreview: validateImageURL(photo.imagePreview),
+              imageFull: validateImageURL(photo.imageFull)
+            }
+          }))
+        };
+      }
+
+      function validateImageURL(url) {
+        if (!url) return '';
+        if (url.startsWith('https://drive.google.com/file/d/')) {
+          const fileId = url.split('/d/')[1].split('/')[0];
+          return `https://drive.google.com/uc?export=view&id=${fileId}`;
+        }
+        return url.startsWith('http') ? url : '';
+      }
+
+      function isValidCoordinates(lng, lat) {
+        return !isNaN(lng) && !isNaN(lat) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+      }
+
+      function setupMapFeatures(geoJsonData) {
+        if (!geoJsonData || !geoJsonData.features) {
+          console.error("No valid data available");
+          return;
+        }
+
+        if (!map.getSource('crosshair-line')) {
+          map.addSource('crosshair-line', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        }
+
+        if (!map.getLayer('crosshair-line-layer')) {
+          map.addLayer({
+            id: 'crosshair-line-layer',
+            type: 'line',
+            source: 'crosshair-line',
+            layout: { 'line-join': 'round', 'line-cap': 'round' },
+            paint: { 'line-color': '#FFFF00', 'line-width': 5 }
+          });
+        }
+
+        if (!map.getSource('photos')) {
+          map.addSource('photos', { type: 'geojson', data: geoJsonData });
+        }
+
+        if (!map.getLayer('unclustered-point')) {
+          map.addLayer({
+            id: 'unclustered-point',
+            type: 'circle',
+            source: 'photos',
+            paint: {
+              'circle-color': '#FF9900',
+              'circle-radius': 8,
+              'circle-stroke-width': 1,
+              'circle-stroke-color': '#fff'
+            }
+          });
+        }
+
+        map.on('move', () => {
+          if (map.getSource('photos')) {
+            updateUIToClosestMarker();
+          }
+        });
+
+        map.on('click', 'unclustered-point', e => {
+          if (e.features && e.features.length > 0) {
+            handleMarkerClick(e.features[0]);
+          }
+        });
+      }
+
+      function handleMarkerClick(clickedFeature) {
+        if (!clickedFeature) return;
+        const { coordinates } = clickedFeature.geometry;
+        map.flyTo({ center: coordinates, zoom: 14, essential: true });
+        const { title, date, story, photographer, imagePreview } = clickedFeature.properties;
+        updatePanel(title, date, story, photographer, imagePreview);
+      }
+
+      function calculateMaxDistance(map) {
+        const zoomLevel = map.getZoom();
+        const viewportWidthInKm = (40075 / Math.pow(2, zoomLevel)) * (window.innerWidth / 256);
+        const maxDistance = viewportWidthInKm * 0.05;
+        return maxDistance;
+      }
+
+      function updateUIToClosestMarker() {
+        if (!geoJsonData || !geoJsonData.features) {
+          console.error("No valid geoJsonData to process.");
+          return;
+        }
+
+        const maxDistance = calculateMaxDistance(map);
+        const { closestMarker, closestMarkerDistance } = findClosestMarker(map.getCenter(), geoJsonData.features);
+
+        if (closestMarker && closestMarkerDistance < maxDistance) {
+          if (map.getSource('crosshair-line')) {
+            map.getSource('crosshair-line').setData({
+              type: 'FeatureCollection',
+              features: [{
+                type: 'Feature',
+                geometry: { type: 'LineString', coordinates: [[map.getCenter().lng, map.getCenter().lat], closestMarker.geometry.coordinates] }
+              }]
+            });
+          }
+          const { title, date, story, photographer, imagePreview } = closestMarker.properties;
+          updatePanel(title, date, story, photographer, imagePreview);
+        } else {
+          if (map.getSource('crosshair-line')) {
+            map.getSource('crosshair-line').setData({ type: 'FeatureCollection', features: [] });
+          }
+          document.getElementById('photo-panel').classList.remove('show');
+          document.getElementById('photo-drawer').classList.remove('show');
+        }
+      }
+
+      function findClosestMarker(mapCenter, features) {
+        const from = turf.point([mapCenter.lng, mapCenter.lat]);
+        let minDistance = Infinity;
+        let nearestFeature = null;
+        features.forEach(feature => {
+          const distance = turf.distance(from, turf.point(feature.geometry.coordinates));
+          if (distance < minDistance) {
+            minDistance = distance;
+            nearestFeature = feature;
+          }
+        });
+        return { closestMarker: nearestFeature, closestMarkerDistance: minDistance };
+      }
+
+      function updatePanel(title, date, story, photographer, imagePreview) {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+          document.getElementById('drawer-title').textContent = title;
+          document.getElementById('drawer-date').textContent = date;
+          document.getElementById('drawer-story').textContent = story;
+
+          const photographerElement = document.getElementById('drawer-photographer');
+          if (photographer.startsWith('@')) {
+            const photographerLink = document.createElement('a');
+            photographerLink.href = `https://instagram.com/${photographer.substring(1)}`;
+            photographerLink.target = '_blank';
+            photographerLink.textContent = photographer;
+            photographerElement.innerHTML = '';
+            photographerElement.appendChild(photographerLink);
+          } else {
+            photographerElement.textContent = photographer;
+          }
+
+          const drawerImage = document.getElementById('drawer-image');
+          if (imagePreview && imagePreview.startsWith('http')) {
+            drawerImage.src = imagePreview;
+            drawerImage.style.backgroundColor = "transparent";
+          } else {
+            drawerImage.src = "";
+            drawerImage.style.backgroundColor = "#ccc";
+          }
+          document.getElementById('photo-drawer').classList.add('show');
+        } else {
+          document.getElementById('panel-title').textContent = title;
+          document.getElementById('panel-date').textContent = date;
+          document.getElementById('panel-story').textContent = story;
+
+          const photographerElement = document.getElementById('panel-photographer');
+          if (photographer.startsWith('@')) {
+            const photographerLink = document.createElement('a');
+            photographerLink.href = `https://instagram.com/${photographer.substring(1)}`;
+            photographerLink.target = '_blank';
+            photographerLink.textContent = photographer;
+            photographerElement.innerHTML = '';
+            photographerElement.appendChild(photographerLink);
+          } else {
+            photographerElement.textContent = photographer;
+          }
+
+          const panelImage = document.getElementById('panel-image');
+          if (imagePreview && imagePreview.startsWith('http')) {
+            panelImage.src = imagePreview;
+            panelImage.style.backgroundColor = "transparent";
+          } else {
+            panelImage.src = "";
+            panelImage.style.backgroundColor = "#ccc";
+          }
+          document.getElementById('photo-panel').classList.add('show');
+        }
+      }
+    });
+  </script>
+</body>
+</html>
